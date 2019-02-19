@@ -219,6 +219,35 @@ func (flag SectionFlags) String() string {
 
 // --- [ Data directories ] ----------------------------------------------------
 
+// ~~~ [ Base Relocation Table ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+//go:generate stringer -trimprefix BaseRelocType -type BaseRelocType
+
+// BaseRelocType indicates the type of base relocation to apply by the linker.
+type BaseRelocType uint8
+
+// Base relocation types.
+//
+// ref: https://docs.microsoft.com/en-us/windows/desktop/debug/pe-format#base-relocation-types
+const (
+	BaseRelocTypeAbsolute      BaseRelocType = 0  // The base relocation is skipped. This type can be used to pad a block.
+	BaseRelocTypeHigh          BaseRelocType = 1  // The base relocation adds the high 16 bits of the difference to the 16-bit field at offset. The 16-bit field represents the high value of a 32-bit word.
+	BaseRelocTypeLow           BaseRelocType = 2  // The base relocation adds the low 16 bits of the difference to the 16-bit field at offset. The 16-bit field represents the low half of a 32-bit word.
+	BaseRelocTypeHighLow       BaseRelocType = 3  // The base relocation applies all 32 bits of the difference to the 32-bit field at offset.
+	BaseRelocTypeHighAdj       BaseRelocType = 4  // The base relocation adds the high 16 bits of the difference to the 16-bit field at offset. The 16-bit field represents the high value of a 32-bit word. The low 16 bits of the 32-bit value are stored in the 16-bit word that follows this base relocation. This means that this base relocation occupies two slots.
+	BaseRelocTypeMipsJmpAddr   BaseRelocType = 5  // The relocation interpretation is dependent on the machine type. When the machine type is MIPS, the base relocation applies to a MIPS jump instruction.
+	BaseRelocTypeARMMov32      BaseRelocType = 5  // This relocation is meaningful only when the machine type is ARM or Thumb. The base relocation applies the 32-bit address of a symbol across a consecutive MOVW/MOVT instruction pair.
+	BaseRelocTypeRISCVHigh20   BaseRelocType = 5  // This relocation is only meaningful when the machine type is RISC-V. The base relocation applies to the high 20 bits of a 32-bit absolute address.
+	BaseRelocTypeReserved6     BaseRelocType = 6  // Reserved, must be zero.
+	BaseRelocTypeThumbMov32    BaseRelocType = 7  // This relocation is meaningful only when the machine type is Thumb. The base relocation applies the 32-bit address of a symbol to a consecutive MOVW/MOVT instruction pair.
+	BaseRelocTypeRISCVLow12i   BaseRelocType = 7  // This relocation is only meaningful when the machine type is RISC-V. The base relocation applies to the low 12 bits of a 32-bit absolute address formed in RISC-V I-type instruction format.
+	BaseRelocTypeRISCVLow12s   BaseRelocType = 8  // This relocation is only meaningful when the machine type is RISC-V. The base relocation applies to the low 12 bits of a 32-bit absolute address formed in RISC-V S-type instruction format.
+	BaseRelocTypeMIPSJmpAddr16 BaseRelocType = 9  // The relocation is only meaningful when the machine type is MIPS. The base relocation applies to a MIPS16 jump instruction.
+	BaseRelocTypeDir64         BaseRelocType = 10 // The base relocation applies the difference to the 64-bit field at offset.
+)
+
+// ~~~ [ Debug ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 //go:generate stringer -trimprefix DebugType -type DebugType
 
 // DebugType specifies the format type of the debug data pointed to by the

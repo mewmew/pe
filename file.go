@@ -27,6 +27,7 @@ type File struct {
 	// 3 - Exception Table
 	// 4 - Certificate Table
 	// 5 - Base Relocation Table
+	BaseRelocBlocks []BaseRelocBlock
 	// 6 - Debug data
 	DbgData []DebugData
 	// 7 - Architecture
@@ -45,7 +46,7 @@ type File struct {
 func (file *File) ReadData(addr uint64, n int64) []byte {
 	for _, sectHdr := range file.SectHdrs {
 		sectStartAddr := file.OptHdr.ImageBase + uint64(sectHdr.RelAddr)
-		sectEndAddr := sectStartAddr + uint64(sectHdr.DataOffset)
+		sectEndAddr := sectStartAddr + uint64(sectHdr.DataSize)
 		if !(sectStartAddr <= addr && addr+uint64(n) < sectEndAddr) {
 			continue
 		}

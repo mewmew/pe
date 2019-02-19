@@ -83,7 +83,7 @@ func parse(content []byte) (*File, error) {
 	}
 	file.SectHdrs = sectHdrs
 	// Parse contents of data directories.
-	if err := file.parseDataDirContent(r); err != nil {
+	if err := file.parseDataDirsContent(r); err != nil {
 		return nil, errors.WithStack(err)
 	}
 	return file, nil
@@ -156,8 +156,8 @@ func (file *File) parseDataDirs(r reader) ([]DataDirectory, error) {
 
 // parseSectionHdrs parses the section headers of the given PE file.
 func (file *File) parseSectionHdrs(r reader) ([]SectionHeader, error) {
-	sectHdrs := make([]SectionHeader, file.FileHdr.NSections)
-	for range sectHdrs {
+	var sectHdrs []SectionHeader
+	for i := 0; i < int(file.FileHdr.NSections); i++ {
 		var raw pe.RawSectionHeader
 		if err := binary.Read(r, binary.LittleEndian, &raw); err != nil {
 			return nil, errors.WithStack(err)
@@ -167,8 +167,8 @@ func (file *File) parseSectionHdrs(r reader) ([]SectionHeader, error) {
 	return sectHdrs, nil
 }
 
-// parseDataDirContent parses the contents of the data directories.
-func (file *File) parseDataDirContent(r reader) error {
+// parseDataDirsContent parses the contents of the data directories.
+func (file *File) parseDataDirsContent(r reader) error {
 	for idx, dataDir := range file.DataDirs {
 		zero := DataDirectory{}
 		if dataDir == zero {
@@ -194,8 +194,11 @@ func (file *File) parseDataDirContent(r reader) error {
 			panic(fmt.Errorf("support for data directory index %d not yet implemented", idx))
 		case 5:
 			// Base Relocation Table
-			// TODO: parse relocation table.
-			//panic(fmt.Errorf("support for data directory index %d not yet implemented", idx))
+			baseRelocBlocks, err := file.parseBaseRelocBlocks(dataDir)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+			file.BaseRelocBlocks = baseRelocBlocks
 		case 6:
 			// Debug data
 			dbgData, err := file.parseDebugData(dataDir)
@@ -236,6 +239,55 @@ func (file *File) parseDataDirContent(r reader) error {
 		}
 	}
 	return nil
+}
+
+// --- [ Base Relocation Table ] -----------------------------------------------
+
+// parseBaseRelocBlocks parses the base relocation table of the given data
+// directory.
+func (file *File) parseBaseRelocBlocks(dataDir DataDirectory) ([]BaseRelocBlock, error) {
+	addr := file.OptHdr.ImageBase + uint64(dataDir.RelAddr)
+	buf := file.ReadData(addr, int64(dataDir.Size))
+	r := bytes.NewReader(buf)
+	var blocks []BaseRelocBlock
+	for {
+		block, err := file.parseBaseRelocBlock(r)
+		if err != nil {
+			if errors.Cause(err) == io.EOF {
+				break
+			}
+			return nil, errors.WithStack(err)
+		}
+		blocks = append(blocks, block)
+	}
+	return blocks, nil
+}
+
+// parseBaseRelocBlock parses a base relocation block, reading from r.
+func (file *File) parseBaseRelocBlock(r io.Reader) (BaseRelocBlock, error) {
+	var raw pe.RawBaseRelocBlock
+	if err := binary.Read(r, binary.LittleEndian, &raw); err != nil {
+		return BaseRelocBlock{}, errors.WithStack(err)
+	}
+	block := BaseRelocBlock{
+		PageRelAddr: raw.PageRelAddr,
+		BlockSize:   raw.BlockSize,
+	}
+	lr := &io.LimitedReader{
+		R: r,
+		N: int64(raw.BlockSize) - 8, // exclude size of RawBaseRelocBlock.
+	}
+	for {
+		var rawEntry pe.RawBaseRelocEntry
+		if err := binary.Read(lr, binary.LittleEndian, &rawEntry); err != nil {
+			if errors.Cause(err) == io.EOF {
+				break
+			}
+			return BaseRelocBlock{}, errors.WithStack(err)
+		}
+		block.Entries = append(block.Entries, goBaseRelocEntry(rawEntry))
+	}
+	return block, nil
 }
 
 // --- [ Debug ] ---------------------------------------------------------------

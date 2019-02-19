@@ -334,6 +334,38 @@ type RawSectionHeader struct {
 
 // --- [ Data directories ] ----------------------------------------------------
 
+// ~~~ [ Base Relocation Table ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+// RawBaseRelocBlock is a base relocation block descriptor (in raw format).
+type RawBaseRelocBlock struct {
+	// Relative address of page. The address of a relocation is computed by
+	// adding the image base, the page relative address and the offset of the
+	// reloc.
+	//
+	// offset: 0x0000 (4 bytes)
+	PageRelAddr uint32
+	// Size of block in number of bytes.
+	//
+	// offset: 0x0004 (4 bytes)
+	BlockSize uint32
+}
+
+// RawBaseRelocEntry is a base relocation entry (in raw format).
+type RawBaseRelocEntry struct {
+	// Bitfield of data.
+	//
+	//    // Base relocation type.
+	//    Type   : 4
+	//    // Offset of base relocation from the start of the base relocation
+	//    // block.
+	//    Offset : 12
+	//
+	// offset: 0x0000 (2 bytes)
+	Bitfield uint16
+}
+
+// ~~~ [ Debug ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 // RawDebugDirectory is a debug data directory (in raw format).
 //
 // ref: https://docs.microsoft.com/en-us/windows/desktop/debug/pe-format#debug-directory-image-only

@@ -108,6 +108,21 @@ func goSectionHeader(raw pe.RawSectionHeader) SectionHeader {
 	}
 }
 
+// --- [ Data directories ] ----------------------------------------------------
+
+// ~~~ [ Base Relocation Table ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+// goBaseRelocEntry converts the raw base relocation entry into a corresponding
+// Go version.
+func goBaseRelocEntry(raw pe.RawBaseRelocEntry) BaseRelocEntry {
+	return BaseRelocEntry{
+		Type:   enum.BaseRelocType(raw.Bitfield & 0xF000 >> 12), // 0b1111000000000000
+		Offset: raw.Bitfield & 0x0FFF,                           // 0b111111111111
+	}
+}
+
+// ~~~ [ Debug ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 // goDebugDirectory converts the raw debug data directory into a corresponding Go
 // version.
 func goDebugDirectory(raw pe.RawDebugDirectory) DebugDirectory {
