@@ -1,4 +1,5 @@
-package pe
+// Package enum defines enumerate types of the PE file format.
+package enum
 
 import "strings"
 

@@ -3,6 +3,8 @@ package pe
 import (
 	"fmt"
 	"time"
+
+	"github.com/mewmew/pe/enum"
 )
 
 // File is a Portable Executable (PE) file.
@@ -58,7 +60,7 @@ func (file *File) ReadData(addr uint64, n int64) []byte {
 // FileHeader is a COFF file header.
 type FileHeader struct {
 	// Target CPU type.
-	Machine MachineType
+	Machine enum.MachineType
 	// Number of sections.
 	NSections uint16
 	// File creation time.
@@ -70,7 +72,7 @@ type FileHeader struct {
 	// Size in bytes of optional header.
 	OptHdrSize uint16
 	// Image characteristics.
-	Characteristics Characteristics
+	Characteristics enum.Characteristics
 }
 
 // OptHeader is an optional header of a PE file.
@@ -122,9 +124,9 @@ type OptHeader struct {
 	// Image checksum.
 	Checksum uint32
 	// Subsystem required to run image.
-	Subsystem Subsystem
+	Subsystem enum.Subsystem
 	// DLL characteristics.
-	DLLCharacteristics DLLCharacteristics
+	DLLCharacteristics enum.DLLCharacteristics
 	// Reserved stack space in bytes.
 	ReservedStackSize uint64
 	// Initial stack size in bytes.
@@ -174,5 +176,5 @@ type SectionHeader struct {
 	// Number of line number entires.
 	NLineNums uint16
 	// Section flags.
-	Flags SectionFlags
+	Flags enum.SectionFlags
 }

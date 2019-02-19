@@ -11,6 +11,8 @@ import (
 	"io/ioutil"
 	"time"
 
+	"github.com/mewmew/pe/enum"
+	"github.com/mewmew/pe/internal/pe"
 	"github.com/pkg/errors"
 )
 
@@ -107,11 +109,11 @@ func parseFileHeader(r reader) (*FileHeader, error) {
 		return nil, errors.Errorf("invalid PE signature; expected %q, got %q", signature, sig)
 	}
 	// Parse COFF file header.
-	raw := &RawFileHeader{}
+	raw := &pe.RawFileHeader{}
 	if err := binary.Read(r, binary.LittleEndian, raw); err != nil {
 		return nil, errors.WithStack(err)
 	}
-	return raw.FileHeader(), nil
+	return goFileHeader(raw), nil
 }
 
 // parseOptHeader parses the optional header of the given PE file.
@@ -124,18 +126,18 @@ func parseOptHeader(r reader) (*OptHeader, error) {
 	switch magic {
 	case 0x010B:
 		// PE32 (32-bit).
-		raw := &RawOptHeader32{}
+		raw := &pe.RawOptHeader32{}
 		if err := binary.Read(r, binary.LittleEndian, raw); err != nil {
 			return nil, errors.WithStack(err)
 		}
-		return raw.OptHeader(magic), nil
+		return goOptHeader32(raw, magic), nil
 	case 0x020B:
 		// PE32+ (64-bit).
-		raw := &RawOptHeader64{}
+		raw := &pe.RawOptHeader64{}
 		if err := binary.Read(r, binary.LittleEndian, raw); err != nil {
 			return nil, errors.WithStack(err)
 		}
-		return raw.OptHeader(magic), nil
+		return goOptHeader64(raw, magic), nil
 	default:
 		return nil, errors.Errorf("invalid optional header magic number; expected 0x010B or 0x020B, got 0x%04X", magic)
 	}
@@ -156,11 +158,11 @@ func (file *File) parseDataDirs(r reader) ([]DataDirectory, error) {
 func (file *File) parseSectionHdrs(r reader) ([]SectionHeader, error) {
 	sectHdrs := make([]SectionHeader, file.FileHdr.NSections)
 	for range sectHdrs {
-		var raw RawSectionHeader
+		var raw pe.RawSectionHeader
 		if err := binary.Read(r, binary.LittleEndian, &raw); err != nil {
 			return nil, errors.WithStack(err)
 		}
-		sectHdrs = append(sectHdrs, raw.SectionHeader())
+		sectHdrs = append(sectHdrs, goSectionHeader(raw))
 	}
 	return sectHdrs, nil
 }
@@ -248,19 +250,19 @@ func (file *File) parseDebugData(dataDir DataDirectory) ([]DebugData, error) {
 	for _, dbgDir := range dbgDirs {
 		buf := file.readDebugData(dbgDir)
 		switch dbgDir.Type {
-		case DebugTypeCodeView:
+		case enum.DebugTypeCodeView:
 			dbgCodeView, err := parseDebugCodeViewInfo(dbgDir, buf)
 			if err != nil {
 				return nil, errors.WithStack(err)
 			}
 			dbgData = append(dbgData, dbgCodeView)
-		case DebugTypeFPO:
+		case enum.DebugTypeFPO:
 			dbgFPO, err := parseDebugFPO(dbgDir, buf)
 			if err != nil {
 				return nil, errors.WithStack(err)
 			}
 			dbgData = append(dbgData, dbgFPO)
-		case DebugTypeMisc:
+		case enum.DebugTypeMisc:
 			// Miscellaneous debug data format is application specific; store raw
 			// content.
 			dbgMisc := &DebugMisc{
@@ -282,14 +284,14 @@ func (file *File) parseDebugDirs(dataDir DataDirectory) ([]DebugDirectory, error
 	r := bytes.NewReader(buf)
 	var dbgDirs []DebugDirectory
 	for {
-		var raw RawDebugDirectory
+		var raw pe.RawDebugDirectory
 		if err := binary.Read(r, binary.LittleEndian, &raw); err != nil {
 			if errors.Cause(err) == io.EOF {
 				break
 			}
 			return nil, errors.WithStack(err)
 		}
-		dbgDirs = append(dbgDirs, raw.DebugDirectory())
+		dbgDirs = append(dbgDirs, goDebugDirectory(raw))
 	}
 	return dbgDirs, nil
 }
@@ -310,7 +312,7 @@ func (file *File) readDebugData(dbgDir DebugDirectory) []byte {
 // parseDebugCodeViewInfo parses the CodeView debug data of the given debug data
 // directory contents.
 func parseDebugCodeViewInfo(dbgDir DebugDirectory, buf []byte) (*DebugCodeView, error) {
-	var raw RawCodeViewInfo
+	var raw pe.RawCodeViewInfo
 	r := bytes.NewReader(buf)
 	if err := binary.Read(r, binary.LittleEndian, &raw); err != nil {
 		return nil, errors.WithStack(err)
@@ -322,7 +324,7 @@ func parseDebugCodeViewInfo(dbgDir DebugDirectory, buf []byte) (*DebugCodeView, 
 	pdbPath := parseCString(b)
 	dbgCodeView := &DebugCodeView{
 		DbgDir:       dbgDir,
-		CodeViewInfo: raw.CodeViewInfo(pdbPath),
+		CodeViewInfo: goCodeViewInfo(raw, pdbPath),
 	}
 	return dbgCodeView, nil
 }
@@ -335,14 +337,14 @@ func parseDebugFPO(dbgDir DebugDirectory, buf []byte) (*DebugFPO, error) {
 	r := bytes.NewReader(buf)
 	var fpoData []FPOData
 	for {
-		var raw RawFPOData
+		var raw pe.RawFPOData
 		if err := binary.Read(r, binary.LittleEndian, &raw); err != nil {
 			if errors.Cause(err) == io.EOF {
 				break
 			}
 			return nil, errors.WithStack(err)
 		}
-		fpoData = append(fpoData, raw.FPOData())
+		fpoData = append(fpoData, goFPOData(raw))
 	}
 	dbgFPO := &DebugFPO{
 		DbgDir:  dbgDir,

@@ -1,6 +1,10 @@
 package pe
 
-import "time"
+import (
+	"time"
+
+	"github.com/mewmew/pe/enum"
+)
 
 // --- [ Debug ] ---------------------------------------------------------------
 
@@ -27,7 +31,7 @@ type DebugDirectory struct {
 	// Minor debug data format version.
 	MinorVer uint16
 	// Debug data format type.
-	Type DebugType
+	Type enum.DebugType
 	// Debug data size in bytes.
 	Size uint32
 	// Relative address to debug data (relative to image base).
@@ -104,7 +108,7 @@ type FPOData struct {
 	// Reserved.
 	Reserved uint8
 	// Frame type of function.
-	Frame FrameType
+	Frame enum.FrameType
 }
 
 // ~~~ [ Misc ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
