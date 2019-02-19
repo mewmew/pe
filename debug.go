@@ -16,8 +16,8 @@ import (
 //    *DebugFPO
 //    *DebugMisc
 type DebugData interface {
-	// dbgDir returns the debug data directory of the debug data.
-	dbgDir() DebugDirectory
+	// DebugDir returns the debug data directory of the debug data.
+	DebugDir() DebugDirectory
 }
 
 // DebugDirectory is a debug data directory.
@@ -50,8 +50,8 @@ type DebugCodeView struct {
 	CodeViewInfo
 }
 
-// dbgDir returns the debug data directory of the CodeView debug data.
-func (dbg *DebugCodeView) dbgDir() DebugDirectory {
+// DebugDir returns the debug data directory of the CodeView debug data.
+func (dbg *DebugCodeView) DebugDir() DebugDirectory {
 	return dbg.DbgDir
 }
 
@@ -80,8 +80,8 @@ type DebugFPO struct {
 	FPOData []FPOData
 }
 
-// dbgDir returns the debug data directory of the CodeView debug data.
-func (dbg *DebugFPO) dbgDir() DebugDirectory {
+// DebugDir returns the debug data directory of the CodeView debug data.
+func (dbg *DebugFPO) DebugDir() DebugDirectory {
 	return dbg.DbgDir
 }
 
@@ -121,7 +121,7 @@ type DebugMisc struct {
 	Content []byte
 }
 
-// dbgDir returns the debug data directory of the CodeView debug data.
-func (dbg *DebugMisc) dbgDir() DebugDirectory {
+// DebugDir returns the debug data directory of the CodeView debug data.
+func (dbg *DebugMisc) DebugDir() DebugDirectory {
 	return dbg.DbgDir
 }

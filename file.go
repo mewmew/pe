@@ -141,17 +141,11 @@ type OptHeader struct {
 	NDataDirs uint32
 }
 
-// DataDirectory is a data directory.
-//
-// ref: https://docs.microsoft.com/en-us/windows/desktop/debug/pe-format#optional-header-data-directories-image-only
+// DataDirectory is a data directory of a PE file.
 type DataDirectory struct {
 	// Relative address to table.
-	//
-	// offset: 0x0000 (4 bytes)
 	RelAddr uint32
 	// Size of table in bytes.
-	//
-	// offset: 0x0004 (4 bytes)
 	Size uint32
 }
 
