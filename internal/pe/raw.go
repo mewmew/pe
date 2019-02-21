@@ -1,3 +1,4 @@
+// Package pe provides data structures of PE files in raw format.
 package pe
 
 import "github.com/mewmew/pe/enum"
