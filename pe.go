@@ -190,6 +190,7 @@ func (file *File) parseDataDirsContent(r reader) error {
 			if err != nil {
 				return errors.WithStack(err)
 			}
+			file.Imps = imps
 		case 2:
 			// Resource Table
 			// TODO: parse resource table.
