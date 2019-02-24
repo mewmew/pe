@@ -232,8 +232,7 @@ func (file *File) parseDataDirsContent(r reader) error {
 			panic(fmt.Errorf("support for data directory index %d not yet implemented", idx))
 		case 12:
 			// Import Address Table
-			// TODO: parse import address table.
-			//panic(fmt.Errorf("support for data directory index %d not yet implemented", idx))
+			// already handled when parsing import table.
 		case 13:
 			// Delay Import Descriptor
 			panic(fmt.Errorf("support for data directory index %d not yet implemented", idx))
