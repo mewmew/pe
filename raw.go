@@ -1,6 +1,8 @@
 package pe
 
 import (
+	"encoding/binary"
+
 	"github.com/mewmew/pe/enum"
 	"github.com/mewmew/pe/internal/pe"
 )
@@ -110,18 +112,100 @@ func goSectionHeader(raw pe.RawSectionHeader) SectionHeader {
 
 // --- [ Data directories ] ----------------------------------------------------
 
-// ~~~ [ Base Relocation Table ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ~~~ [ 1 - Import Table ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+// goImportDirectory converts the raw import data directory into a corresponding
+// Go version.
+func (file *File) goImportDirectory(raw pe.RawImportDirectory) ImportDirectory {
+	nameAddr := file.OptHdr.ImageBase + uint64(raw.NameRelAddr)
+	name := file.parseCString(nameAddr)
+	return ImportDirectory{
+		INTRelAddr:   raw.INTRelAddr,
+		Date:         parseDateFromEpoch(raw.Date),
+		ForwardChain: raw.ForwardChain,
+		Name:         name,
+		IATRelAddr:   raw.IATRelAddr,
+	}
+}
+
+// goINTEntry32 converts the raw 32-bit INT entry into a corresponding Go
+// version.
+func (file *File) goINTEntry32(raw pe.RawINTEntry32) INTEntry {
+	// IsOrdinal : 1 bit
+	isOrdinal := (raw & 0x80000000) != 0
+	if isOrdinal {
+		// Padding : 15
+		// Ordinal : 16
+		ordinal := uint16(raw & 0x0000FFFF)
+		return INTEntry{
+			IsOrdinal: isOrdinal,
+			Ordinal:   ordinal,
+		}
+	}
+	// NameEntryRelAddr : 31
+	nameEntryRelAddr := raw & 0x7FFFFFFF
+	addr := file.OptHdr.ImageBase + uint64(nameEntryRelAddr)
+	nameEntry := file.parseNameEntry(addr)
+	return INTEntry{
+		NameEntry: nameEntry,
+	}
+}
+
+// goINTEntry64 converts the raw 64-bit INT entry into a corresponding Go
+// version.
+func (file *File) goINTEntry64(raw pe.RawINTEntry64) INTEntry {
+	// IsOrdinal : 1 bit
+	isOrdinal := (raw & 0x8000000000000000) != 0
+	if isOrdinal {
+		// Padding : 47
+		// Ordinal : 16
+		ordinal := uint16(raw & 0x000000000000FFFF)
+		return INTEntry{
+			IsOrdinal: isOrdinal,
+			Ordinal:   ordinal,
+		}
+	}
+	// NameEntryRelAddr : 63
+	nameEntryRelAddr := raw & 0x7FFFFFFFFFFFFFFF
+	addr := file.OptHdr.ImageBase + uint64(nameEntryRelAddr)
+	nameEntry := file.parseNameEntry(addr)
+	return INTEntry{
+		NameEntry: nameEntry,
+	}
+}
+
+// parseNameEntry parses the name entry at the specified address.
+func (file *File) parseNameEntry(addr uint64) NameEntry {
+	// Parse hint.
+	const hintSize = 2
+	buf := file.ReadData(addr, hintSize)
+	hint := binary.LittleEndian.Uint16(buf)
+	addr += hintSize
+	// Parse name.
+	name := file.parseCString(addr)
+	return NameEntry{
+		Hint: hint,
+		Name: name,
+	}
+}
+
+// ~~~ [ 5 - Base Relocation Table ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // goBaseRelocEntry converts the raw base relocation entry into a corresponding
 // Go version.
 func goBaseRelocEntry(raw pe.RawBaseRelocEntry) BaseRelocEntry {
+	// TODO: use binary literals.
+	// Type   : 4 bits
+	typ := enum.BaseRelocType(raw.Bitfield & 0xF000 >> 12) // 0b1111000000000000
+	// Offset : 12 bit
+	offset := raw.Bitfield & 0x0FFF // 0b111111111111
 	return BaseRelocEntry{
-		Type:   enum.BaseRelocType(raw.Bitfield & 0xF000 >> 12), // 0b1111000000000000
-		Offset: raw.Bitfield & 0x0FFF,                           // 0b111111111111
+		Type:   typ,
+		Offset: offset,
 	}
 }
 
-// ~~~ [ Debug ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ~~~ [ 6 - Debug ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // goDebugDirectory converts the raw debug data directory into a corresponding Go
 // version.

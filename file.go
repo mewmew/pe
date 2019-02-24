@@ -23,6 +23,7 @@ type File struct {
 	//
 	// 0 - Export Table
 	// 1 - Import Table
+	Imps []ImportEntry
 	// 2 - Resource Table
 	// 3 - Exception Table
 	// 4 - Certificate Table

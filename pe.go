@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"time"
 
 	"github.com/mewmew/pe/enum"
 	"github.com/mewmew/pe/internal/pe"
@@ -116,6 +115,13 @@ func parseFileHeader(r reader) (*FileHeader, error) {
 	return goFileHeader(raw), nil
 }
 
+const (
+	// Magic value of optional header for PE32 (32-bit).
+	magic32 = 0x010B
+	// Magic value of optional header for PE32+ (64-bit).
+	magic64 = 0x020B
+)
+
 // parseOptHeader parses the optional header of the given PE file.
 func parseOptHeader(r reader) (*OptHeader, error) {
 	// Get magic number to determine type of optional header (PE32 vs. PE32+).
@@ -124,14 +130,14 @@ func parseOptHeader(r reader) (*OptHeader, error) {
 		return nil, errors.WithStack(err)
 	}
 	switch magic {
-	case 0x010B:
+	case magic32:
 		// PE32 (32-bit).
 		raw := &pe.RawOptHeader32{}
 		if err := binary.Read(r, binary.LittleEndian, raw); err != nil {
 			return nil, errors.WithStack(err)
 		}
 		return goOptHeader32(raw, magic), nil
-	case 0x020B:
+	case magic64:
 		// PE32+ (64-bit).
 		raw := &pe.RawOptHeader64{}
 		if err := binary.Read(r, binary.LittleEndian, raw); err != nil {
@@ -139,7 +145,7 @@ func parseOptHeader(r reader) (*OptHeader, error) {
 		}
 		return goOptHeader64(raw, magic), nil
 	default:
-		return nil, errors.Errorf("invalid optional header magic number; expected 0x010B or 0x020B, got 0x%04X", magic)
+		return nil, errors.Errorf("invalid optional header magic number; expected 0x%04X or 0x%04X, got 0x%04X", magic32, magic64, magic)
 	}
 }
 
@@ -180,8 +186,10 @@ func (file *File) parseDataDirsContent(r reader) error {
 			panic(fmt.Errorf("support for data directory index %d not yet implemented", idx))
 		case 1:
 			// Import Table
-			// TODO: parse import table.
-			//panic(fmt.Errorf("support for data directory index %d not yet implemented", idx))
+			imps, err := file.parseImports(dataDir)
+			if err != nil {
+				return errors.WithStack(err)
+			}
 		case 2:
 			// Resource Table
 			// TODO: parse resource table.
@@ -241,7 +249,121 @@ func (file *File) parseDataDirsContent(r reader) error {
 	return nil
 }
 
-// --- [ Base Relocation Table ] -----------------------------------------------
+// --- [ 1 - Import Table ] ----------------------------------------------------
+
+// parseImports parses the import table of the given data directory.
+func (file *File) parseImports(dataDir DataDirectory) ([]ImportEntry, error) {
+	impDirs, err := file.parseImportDirs(dataDir)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	var imps []ImportEntry
+	for _, impDir := range impDirs {
+		imp, err := file.parseImportEntry(impDir)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		imps = append(imps, imp)
+	}
+	return imps, nil
+}
+
+// parseImportDirs parses the import data directories.
+func (file *File) parseImportDirs(dataDir DataDirectory) ([]ImportDirectory, error) {
+	addr := file.OptHdr.ImageBase + uint64(dataDir.RelAddr)
+	buf := file.ReadData(addr, int64(dataDir.Size))
+	r := bytes.NewReader(buf)
+	var impDirs []ImportDirectory
+	for {
+		var raw pe.RawImportDirectory
+		if err := binary.Read(r, binary.LittleEndian, &raw); err != nil {
+			if errors.Cause(err) == io.EOF {
+				break
+			}
+			return nil, errors.WithStack(err)
+		}
+		zero := pe.RawImportDirectory{}
+		if raw == zero {
+			// Last entry of table is zero.
+			break
+		}
+		impDir := file.goImportDirectory(raw)
+		impDirs = append(impDirs, impDir)
+	}
+	return impDirs, nil
+}
+
+// parseImportEntry parses the import entry based on the given import data
+// directories.
+func (file *File) parseImportEntry(impDir ImportDirectory) (ImportEntry, error) {
+	// Parse import name table.
+	imp := ImportEntry{
+		ImpDir: impDir,
+	}
+	if impDir.INTRelAddr != 0 {
+		ints, err := file.parseINTs(impDir.INTRelAddr)
+		if err != nil {
+			return ImportEntry{}, errors.WithStack(err)
+		}
+		imp.INTs = ints
+	}
+	// Parse import address table (IAT is identical in structure to INT).
+	iats, err := file.parseINTs(impDir.IATRelAddr)
+	if err != nil {
+		return ImportEntry{}, errors.WithStack(err)
+	}
+	imp.IATs = iats
+	return imp, nil
+}
+
+// parseINTs parses the import name table located at the given
+// relative address.
+func (file *File) parseINTs(intRelAddr uint32) ([]INTEntry, error) {
+	var ints []INTEntry
+	addr := file.OptHdr.ImageBase + uint64(intRelAddr)
+loop:
+	for {
+		switch file.OptHdr.Magic {
+		case magic32:
+			// PE32 (32-bit).
+			const rawSize = 4
+			buf := file.ReadData(addr, rawSize)
+			r := bytes.NewReader(buf)
+			var raw pe.RawINTEntry32
+			if err := binary.Read(r, binary.LittleEndian, &raw); err != nil {
+				return nil, errors.WithStack(err)
+			}
+			if raw == 0 {
+				// Last entry of table is zero.
+				break loop
+			}
+			addr += rawSize
+			intEntry := file.goINTEntry32(raw)
+			ints = append(ints, intEntry)
+		case magic64:
+			// PE32+ (64-bit).
+			const rawSize = 8
+			buf := file.ReadData(addr, rawSize)
+			r := bytes.NewReader(buf)
+			var raw pe.RawINTEntry64
+			if err := binary.Read(r, binary.LittleEndian, &raw); err != nil {
+				return nil, errors.WithStack(err)
+			}
+			if raw == 0 {
+				// Last entry of table is zero.
+				break loop
+			}
+			addr += rawSize
+			intEntry := file.goINTEntry64(raw)
+			ints = append(ints, intEntry)
+		default:
+			return nil, errors.Errorf("invalid optional header magic number; expected 0x%04X or 0x%04X, got 0x%04X", magic32, magic64, file.OptHdr.Magic)
+		}
+	}
+	return ints, nil
+}
+
+// --- [ 5 - Base Relocation Table ] -------------------------------------------
 
 // parseBaseRelocBlocks parses the base relocation table of the given data
 // directory.
@@ -290,7 +412,7 @@ func (file *File) parseBaseRelocBlock(r io.Reader) (BaseRelocBlock, error) {
 	return block, nil
 }
 
-// --- [ Debug ] ---------------------------------------------------------------
+// --- [ 6 - Debug ] -----------------------------------------------------------
 
 // parseDebugData parses the debug data of the given data directory.
 func (file *File) parseDebugData(dataDir DataDirectory) ([]DebugData, error) {
@@ -403,22 +525,4 @@ func parseDebugFPO(dbgDir DebugDirectory, buf []byte) (*DebugFPO, error) {
 		FPOData: fpoData,
 	}
 	return dbgFPO, nil
-}
-
-// ### [ Helper functions ] ####################################################
-
-// parseDateFromEpoch parses the given date in number of seconds since Epoch
-// into a corresponding Go date.
-func parseDateFromEpoch(date uint32) time.Time {
-	return time.Unix(int64(date), 0)
-}
-
-// parseCString parses the given a NULL-terminated string into a corresponding
-// Go string.
-func parseCString(b []byte) string {
-	pos := bytes.IndexByte(b, '\x00')
-	if pos != -1 {
-		b = b[:pos]
-	}
-	return string(b)
 }

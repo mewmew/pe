@@ -1,3 +1,4 @@
 *.exe
 *.json
 _skip_
+cmd/func_dump

@@ -335,7 +335,104 @@ type RawSectionHeader struct {
 
 // --- [ Data directories ] ----------------------------------------------------
 
-// ~~~ [ Base Relocation Table ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ~~~ [ 1 - Import Table ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+// RawImportDirectory is an import data directory (in raw format). The last
+// entry is zero to indicate the end of the import table.
+//
+// ref: https://docs.microsoft.com/en-us/windows/desktop/debug/pe-format#import-directory-table
+type RawImportDirectory struct {
+	// (optional) Relative address of import name table (INT); zero if not
+	// present.
+	//
+	// offset: 0x0000 (4 bytes)
+	INTRelAddr uint32
+	// DLL creation time (set by the dynmaic linker), measured in number of
+	// seconds since Epoch.
+	//
+	// offset: 0x0004 (4 bytes)
+	Date uint32
+	// Index of the first forwarder reference.
+	//
+	// offset: 0x0008 (4 bytes)
+	ForwardChain uint32
+	// Relative address of the DLL name (relative to image base).
+	//
+	// offset: 0x000C (4 bytes)
+	NameRelAddr uint32
+	// Relative address of import address table (IAT).
+	//
+	// offset: 0x0010 (4 bytes)
+	IATRelAddr uint32
+}
+
+// RawINTEntry32 is an import name table entry of a 32-bit PE file (in raw
+// format). The last entry is zero to indicate the end of the import name
+// table.
+//
+// IAT entries are identical to INT entries prior to dynamic linking. After
+// dynamic linking, IAT entries contain the address of the symbol being
+// imported.
+//
+// Bitfield of data:
+//
+//    // Specifies whether to import by ordinal or name.
+//    IsOrdinal : 1
+//    if IsOrdinal {
+//       // Padding.
+//       Padding : 15
+//       // Ordinal number.
+//       Ordinal : 16
+//    } else {
+//       // Relative address of name table entry.
+//       NameEntryRelAddr : 31
+//    }
+//
+// ref: https://docs.microsoft.com/en-us/windows/desktop/debug/pe-format#import-lookup-table
+type RawINTEntry32 uint32
+
+// RawINTEntry64 is an import name table entry of a 64-bit PE file (in raw
+// format). The last entry is zero to indicate the end of the import name
+// table.
+//
+// IAT entries are identical to INT entries prior to dynamic linking. After
+// dynamic linking, IAT entries contain the address of the symbol being
+// imported.
+//
+// Bitfield of data:
+//
+//    // Specifies whether to import by ordinal or name.
+//    IsOrdinal : 1
+//    if IsOrdinal {
+//       // Padding.
+//       Padding : 47
+//       // Ordinal number.
+//       Ordinal : 16
+//    } else {
+//       // Relative address of name table entry.
+//       NameEntryRelAddr : 63
+//    }
+//
+// ref: https://docs.microsoft.com/en-us/windows/desktop/debug/pe-format#import-lookup-table
+type RawINTEntry64 uint64
+
+// RawNameEntry is a name table entry (in raw format).
+//
+// https://docs.microsoft.com/en-us/windows/desktop/debug/pe-format#hintname-table
+type RawNameEntry struct {
+	// Index into the export name table. Used as a hint to try and locate the
+	// entry; if not successful, binary search of the DLL's export name table.
+	//
+	// offset: 0x0000 (2 bytes)
+	Hint uint16
+	// Name stored as a NULL-terminated string.
+	//
+	// offset: 0x0000 (2 bytes)
+	Name []byte
+	// Zero or one bytes of padding, to make the name entry 2-byte aligned.
+}
+
+// ~~~ [ 5 - Base Relocation Table ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // RawBaseRelocBlock is a base relocation block descriptor (in raw format).
 type RawBaseRelocBlock struct {
@@ -365,7 +462,7 @@ type RawBaseRelocEntry struct {
 	Bitfield uint16
 }
 
-// ~~~ [ Debug ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ~~~ [ 6 - Debug ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // RawDebugDirectory is a debug data directory (in raw format).
 //
