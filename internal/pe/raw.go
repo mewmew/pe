@@ -34,7 +34,7 @@ type RawFileHeader struct {
 	// Image characteristics.
 	//
 	// offset: 0x0012 (2 bytes)
-	Characteristics enum.Characteristics
+	Characteristics enum.Characteristic
 }
 
 // RawOptHeader32 is an optional header of a 32-bit PE file (in raw format).
@@ -137,7 +137,7 @@ type RawOptHeader32 struct {
 	// DLL characteristics.
 	//
 	// offset: 0x0046 (2 bytes)
-	DLLCharacteristics enum.DLLCharacteristics
+	DLLCharacteristics enum.DLLCharacteristic
 	// Reserved stack space in bytes.
 	//
 	// offset: 0x0048 (4 bytes)
@@ -260,7 +260,7 @@ type RawOptHeader64 struct {
 	// DLL characteristics.
 	//
 	// offset: 0x0046 (2 bytes)
-	DLLCharacteristics enum.DLLCharacteristics
+	DLLCharacteristics enum.DLLCharacteristic
 	// Reserved stack space in bytes.
 	//
 	// offset: 0x0048 (8 bytes)
@@ -330,7 +330,7 @@ type RawSectionHeader struct {
 	// Section flags.
 	//
 	// offset: 0x0024 (8 bytes)
-	Flags enum.SectionFlags
+	Flags enum.SectionFlag
 }
 
 // --- [ Data directories ] ----------------------------------------------------

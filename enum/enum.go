@@ -41,7 +41,7 @@ const (
 
 //go:generate stringer -trimprefix Characteristic -type Characteristic
 
-// Characteristic is an image characteristic.
+// Characteristic is a bitfield of image characteristics.
 type Characteristic uint16
 
 // Image characteristics.
@@ -66,16 +66,14 @@ const (
 	CharacteristicBytesReversedHi      Characteristic = 0x8000 // Big endian: the MSB precedes the LSB in memory. This flag is deprecated and should be zero.
 )
 
-// Characteristics is a bitfield of image characteristics.
-type Characteristics Characteristic
-
-// String returns the string representation of the image characteristics.
-func (c Characteristics) String() string {
+// CharacteristicString returns the string representation of the image
+// characteristics.
+func CharacteristicString(c Characteristic) string {
 	var ss []string
 	for mask := uint32(1); mask < 0xFFFF; mask <<= 1 {
-		v := Characteristic(c) & Characteristic(mask)
-		if v != 0 {
-			s := v.String()
+		m := Characteristic(mask)
+		if c&m != 0 {
+			s := m.String()
 			ss = append(ss, s)
 		}
 	}
@@ -109,7 +107,7 @@ const (
 
 //go:generate stringer -trimprefix DLLCharacteristic -type DLLCharacteristic
 
-// DLLCharacteristic is a DLL characteristic.
+// DLLCharacteristic is a bitfield of DLL characteristics.
 type DLLCharacteristic uint16
 
 // DLL characteristics.
@@ -133,16 +131,14 @@ const (
 	DLLCharacteristicsTerminalServerAware DLLCharacteristic = 0x8000 // Terminal Server aware.
 )
 
-// DLLCharacteristics is a bitfield of DLL characteristics.
-type DLLCharacteristics DLLCharacteristic
-
-// String returns the string representation of the DLL characteristics.
-func (c DLLCharacteristics) String() string {
+// DLLCharacteristicString returns the string representation of the DLL
+// characteristics.
+func DLLCharacteristicString(c DLLCharacteristic) string {
 	var ss []string
 	for mask := uint32(1); mask < 0xFFFF; mask <<= 1 {
-		v := DLLCharacteristic(c) & DLLCharacteristic(mask)
-		if v != 0 {
-			s := v.String()
+		m := DLLCharacteristic(mask)
+		if c&m != 0 {
+			s := m.String()
 			ss = append(ss, s)
 		}
 	}
@@ -151,7 +147,7 @@ func (c DLLCharacteristics) String() string {
 
 //go:generate stringer -trimprefix SectionFlag -type SectionFlag
 
-// SectionFlag is a section flag.
+// SectionFlag is a bitfield of section flags.
 type SectionFlag uint32
 
 // Section flags.
@@ -201,16 +197,13 @@ const (
 	SectionFlagMemWrite                  SectionFlag = 0x80000000 // The section can be written to.
 )
 
-// SectionFlags is a bitfield of section flags.
-type SectionFlags SectionFlag
-
-// String returns the string representation of the section flags.
-func (flag SectionFlags) String() string {
+// SectionFlagString returns the string representation of the section flags.
+func SectionFlagString(flags SectionFlag) string {
 	var ss []string
-	for mask := uint64(1); mask < 0xFFFF; mask <<= 1 {
-		v := SectionFlag(flag) & SectionFlag(mask)
-		if v != 0 {
-			s := v.String()
+	for mask := uint64(1); mask < 0xFFFFFFFF; mask <<= 1 {
+		m := SectionFlag(mask)
+		if flags&m != 0 {
+			s := m.String()
 			ss = append(ss, s)
 		}
 	}

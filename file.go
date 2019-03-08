@@ -74,7 +74,7 @@ type FileHeader struct {
 	// Size in bytes of optional header.
 	OptHdrSize uint16
 	// Image characteristics.
-	Characteristics enum.Characteristics
+	Characteristics enum.Characteristic
 }
 
 // OptHeader is an optional header of a PE file.
@@ -128,7 +128,7 @@ type OptHeader struct {
 	// Subsystem required to run image.
 	Subsystem enum.Subsystem
 	// DLL characteristics.
-	DLLCharacteristics enum.DLLCharacteristics
+	DLLCharacteristics enum.DLLCharacteristic
 	// Reserved stack space in bytes.
 	ReservedStackSize uint64
 	// Initial stack size in bytes.
@@ -172,5 +172,5 @@ type SectionHeader struct {
 	// Number of line number entires.
 	NLineNums uint16
 	// Section flags.
-	Flags enum.SectionFlags
+	Flags enum.SectionFlag
 }
