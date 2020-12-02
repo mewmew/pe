@@ -25,6 +25,7 @@ type File struct {
 	// 1 - Import Table
 	Imps []ImportEntry
 	// 2 - Resource Table
+	Resources []Resource
 	// 3 - Exception Table
 	// 4 - Certificate Table
 	// 5 - Base Relocation Table

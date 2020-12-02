@@ -1,6 +1,7 @@
 // Package pe provides access to Portable Executable (PE) files.
 //
 // ref: https://docs.microsoft.com/en-us/windows/desktop/debug/pe-format
+// ref: https://docs.microsoft.com/en-us/archive/msdn-magazine/2002/march/inside-windows-an-in-depth-look-into-the-win32-portable-executable-file-format-part-2
 package pe
 
 import (
@@ -193,8 +194,11 @@ func (file *File) parseDataDirsContent(r reader) error {
 			file.Imps = imps
 		case 2:
 			// Resource Table
-			// TODO: parse resource table.
-			//panic(fmt.Errorf("support for data directory index %d not yet implemented", idx))
+			resources, err := file.parseResources(dataDir)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+			file.Resources = resources
 		case 3:
 			// Exception Table
 			panic(fmt.Errorf("support for data directory index %d not yet implemented", idx))
@@ -361,6 +365,80 @@ loop:
 		}
 	}
 	return ints, nil
+}
+
+// --- [ 2 - Resource ] --------------------------------------------------------
+
+// parseResources parses the resources of the given data directory.
+func (file *File) parseResources(dataDir DataDirectory) ([]Resource, error) {
+
+	// []ResourceDirectoryEntry
+	// []ResourceDirectoryString
+	// []ResourceDirecotryData
+
+	dbgDirs, err := file.parseDebugDirs(dataDir)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	var dbgData []DebugData
+	for _, dbgDir := range dbgDirs {
+		buf := file.readDebugData(dbgDir)
+		switch dbgDir.Type {
+		case enum.DebugTypeCodeView:
+			dbgCodeView, err := parseDebugCodeViewInfo(dbgDir, buf)
+			if err != nil {
+				return nil, errors.WithStack(err)
+			}
+			dbgData = append(dbgData, dbgCodeView)
+		case enum.DebugTypeFPO:
+			dbgFPO, err := parseDebugFPO(dbgDir, buf)
+			if err != nil {
+				return nil, errors.WithStack(err)
+			}
+			dbgData = append(dbgData, dbgFPO)
+		case enum.DebugTypeMisc:
+			// Miscellaneous debug data format is application specific; store raw
+			// content.
+			dbgMisc := &DebugMisc{
+				DbgDir:  dbgDir,
+				Content: buf,
+			}
+			dbgData = append(dbgData, dbgMisc)
+		default:
+			panic(fmt.Errorf("support for debug data type %q not yet implemented", dbgDir.Type))
+		}
+	}
+	return dbgData, nil
+}
+
+// parseDebugDirs parses the debug data directories.
+func (file *File) parseDebugDirs(dataDir DataDirectory) ([]DebugDirectory, error) {
+	addr := file.OptHdr.ImageBase + uint64(dataDir.RelAddr)
+	buf := file.ReadData(addr, int64(dataDir.Size))
+	r := bytes.NewReader(buf)
+	var dbgDirs []DebugDirectory
+	for {
+		var raw pe.RawDebugDirectory
+		if err := binary.Read(r, binary.LittleEndian, &raw); err != nil {
+			if errors.Cause(err) == io.EOF {
+				break
+			}
+			return nil, errors.WithStack(err)
+		}
+		dbgDirs = append(dbgDirs, goDebugDirectory(raw))
+	}
+	return dbgDirs, nil
+}
+
+// readDebugData reads the debug data of the given debug data directory.
+func (file *File) readDebugData(dbgDir DebugDirectory) []byte {
+	if dbgDir.RelAddr != 0 {
+		addr := file.OptHdr.ImageBase + uint64(dbgDir.RelAddr)
+		return file.ReadData(addr, int64(dbgDir.Size))
+	}
+	start := dbgDir.Offset
+	end := start + dbgDir.Size
+	return file.Content[start:end]
 }
 
 // --- [ 5 - Base Relocation Table ] -------------------------------------------

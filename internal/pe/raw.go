@@ -432,6 +432,127 @@ type RawNameEntry struct {
 	// Zero or one bytes of padding, to make the name entry 2-byte aligned.
 }
 
+// ~~~ [ 2 - Resource Table ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+//    Resource directory table:
+//       Resource directory                    (0 or more)
+//          Resource directory header
+//          Resource directory entry           (NNamedEntries)
+//          Resource directory entry           (NIDEntries)
+
+// RawResourceDirectoryHeader is the header of a resource directory table (in
+// raw format). Following the table are the entries of the directory.
+//
+// ref: https://docs.microsoft.com/en-us/windows/win32/debug/pe-format#resource-directory-table
+type RawResourceDirectoryHeader struct {
+	// Reserved.
+	//
+	// offset: 0x0000 (4 bytes)
+	Characteristics uint32
+	// Resource table creation time, measured in number of seconds since Epoch.
+	//
+	// offset: 0x0004 (4 bytes)
+	Date uint32
+	// Major resource table format version.
+	//
+	// offset: 0x0008 (2 bytes)
+	MajorVer uint16
+	// Minor resource table format version.
+	//
+	// offset: 0x000A (2 bytes)
+	MinorVer uint16
+	// Number of named entries.
+	//
+	// offset: 0x000C (2 bytes)
+	NNamedEntries uint16
+	// Number of ID entries.
+	//
+	// offset: 0x000E (2 bytes)
+	NIDEntries uint16
+}
+
+// TODO: remove.
+/*
+typedef struct _IMAGE_RESOURCE_DIRECTORY_ENTRY {
+   union {
+      struct {
+         DWORD NameOffset:31;
+         DWORD NameIsString:1;
+      };
+      DWORD Name;
+      WORD  Id;
+   };
+   union {
+      DWORD OffsetToData;
+      struct {
+         DWORD OffsetToDirectory:31;
+         DWORD DataIsDirectory:1;
+      };
+   };
+} IMAGE_RESOURCE_DIRECTORY_ENTRY, *PIMAGE_RESOURCE_DIRECTORY_ENTRY;
+*/
+
+// RawResourceDirectoryEntry is a resource directory entry (in raw format).
+//
+// Bitfield of data:
+//
+//    // Offset of a string that gives the Type, Name, or Language ID entry,
+//    // depending on level of table.
+//    //
+//    // or
+//    //
+//    // ID of the Type, Name, or Language entry.
+//    //
+//    // offset: 0x0000 (4 bytes)
+//    NameOffsetOrID uint32
+//    // If high bit 0: Address of a resource data entry (a leaf).
+//    //
+//    // If high bit 1: Address of another resource direcotry table (the next level
+//    // down); clear high-bit before using address.
+//    //
+//    // offset: 0x0004 (4 bytes)
+//    DataEntryOffsetOrSubdirOffset uint32
+//
+// ref: https://docs.microsoft.com/en-us/windows/win32/debug/pe-format#resource-directory-entries
+type RawResourceDirectoryEntry uint64
+
+// RawResourceDirectoryString is a Unicode resource string (in raw format).
+//
+// ref: https://docs.microsoft.com/en-us/windows/win32/debug/pe-format#resource-directory-string
+type RawResourceDirectoryString struct {
+	// Size in bytes of string.
+	//
+	// offset: 0x0000 (2 bytes)
+	Size uint16
+	// Unicode string contents.
+	//
+	// offset: 0x0002 (variable size)
+	Content []byte
+}
+
+// RawResourceDataEntry is a raw data resource entry (in raw format).
+//
+// ref: https://docs.microsoft.com/en-us/windows/win32/debug/pe-format#resource-data-entry
+type RawResourceDataEntry struct {
+	// Relative address of resource raw data.
+	//
+	// offset: 0x0000 (4 bytes)
+	DataRelAddr uint32
+	// Size in bytes of resource raw data.
+	//
+	// offset: 0x0004 (4 bytes)
+	Size uint32
+	// Code page used to decode code point values within the resource data.
+	// Typically, the code page is the first Unicode code page.
+	//
+	// offset: 0x0008 (4 bytes)
+	CodePage uint32
+	// Reserved.
+	//
+	// offset: 0x000C (4 bytes)
+	Reserved uint32
+}
+
 // ~~~ [ 5 - Base Relocation Table ] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // RawBaseRelocBlock is a base relocation block descriptor (in raw format).
